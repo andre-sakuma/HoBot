@@ -5,7 +5,7 @@ const bot = new Discord.Client();
 
 const PREFIX = '!';
 
-const token = 'Njk3NTQ2MjQ3Nzk1NjM4MzM0.Xo42pQ.R1l2jzrr_RX32o0rEkNFxEWseZU';
+const token = 'tokenID';
 
 const sequelize = new Sequelize('database', 'user', 'password', {
 	host: 'localhost',
