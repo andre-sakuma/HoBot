@@ -1,11 +1,17 @@
 const Discord = require('discord.js');
 const Sequelize = require('sequelize');
+require('dotenv/config')
 
 const bot = new Discord.Client();
 
 const PREFIX = '!';
 
-const token = 'tokenID';
+const token = process.env.TOKEN;
+
+const perguntasList = [];
+let counter = 0;
+
+const channelsList = ['pt-canguru', 'pt-phoenix', 'pt-raposa', 'pt-rinoceronte', 'pt-tigre', 'pt-aoraki', 'pt-kailash', 'pt-monte-fuji', 'pt-grand-canyon', 'hokklan']
 
 const sequelize = new Sequelize('database', 'user', 'password', {
 	host: 'localhost',
@@ -26,12 +32,25 @@ const Placar = sequelize.define('pont', {
 		allowNull: false,
 	},
 });
+const PlacarDia = sequelize.define('pontDia', {
+	name: {
+		type: Sequelize.STRING,
+		unique: true,
+	},
+	pont: {
+		type: Sequelize.INTEGER,
+		defaultValue: 0,
+		allowNull: false,
+	},
+});
+
 
 bot.login(token);
 
 bot.once('ready', () => {
     console.log('pronto');
     Placar.sync();
+    PlacarDia.sync();
 });
 
 bot.on('message', async msg =>{
@@ -60,6 +79,18 @@ bot.on('message', async msg =>{
             msg.author.send('!pont *NomeDaPt* *pontos* - *apenas chefes* Adiciona pontos para a patrulha');
             msg.author.send('!placar - Mostra o placar geral das patrulhas');
         }    
+        else if(command === 'perguntar'){
+            const author = msg.author.id
+            perguntasList.push({id: author, code: counter++})
+            msg.reply(`sua senha: ${counter}`)
+        }
+        else if(command === 'proximo'){
+            if(perguntasList.length==0)return msg.channel.send('A fila está vazia')
+            const id = perguntasList[0].id
+            const code = perguntasList[0].code + 1
+            msg.channel.send(`${code} - <@${id}>`)
+            perguntasList.shift()
+        }
         else if(command === 'addpt' && chefe!=undefined) {
 			const splitArgs = commandArgs.split(' ');
 			const tagName = splitArgs.shift();
@@ -92,6 +123,55 @@ bot.on('message', async msg =>{
                 }
             }
         }
+        else if(command === 'addptDia' && chefe!=undefined) {
+			const splitArgs = commandArgs.split(' ');
+			const tagName = splitArgs.shift();
+
+			try {
+				// equivalent to: INSERT INTO tags (name, descrption, username) values (?, ?, ?);
+				const tag = await PlacarDia.create({
+                    name: tagName,
+                    pont: 0,
+				});
+				return msg.reply(`Patrulha ${tag.name} adicionada.`);
+			} catch (e) {
+				if (e.name === 'SequelizeUniqueConstraintError') {
+					return msg.reply('Essa patrulha ja existe.');
+				}
+				return msg.reply('Alguma coisa deu errado ao adicionar a patrulha.');
+			}
+        }
+        else if(command === 'placarDia') {
+			// equivalent to: SELECT name FROM tags;
+            const tagList = await PlacarDia.findAll();
+			//const tagString = tagList.map(t => t.name).join(' - ').join(tagList.map(t=>t.pont)).join('\n') || 'Nenhuma patrulha foi adicionanda ainda.';
+            //return msg.channel.send(`Lista de Patrulhas: ${tagString}`);
+            msg.channel.send('Placara do dia - Escoteiros')
+            for(var i = 0;i<tagList.length;i++){
+                msg.channel.send(`${tagList[i].name} - ${tagList[i].pont}pts \n`);
+            }
+        }
+        else if(command === 'resetDia') {
+			// equivalent to: SELECT name FROM tags;
+            const tagList = await PlacarDia.findAll();
+			//const tagString = tagList.map(t => t.name).join(' - ').join(tagList.map(t=>t.pont)).join('\n') || 'Nenhuma patrulha foi adicionanda ainda.';
+            //return msg.channel.send(`Lista de Patrulhas: ${tagString}`);
+            for(var i = 0;i<tagList.length;i++){
+                await PlacarDia.update({ pont: 0 }, { where: { name: tagList[i].name } });
+            }
+        }
+        else if(command === 'pontDia' && chefe!=undefined){
+            const splitArgs = commandArgs.split(' ');
+            const tagName = splitArgs.shift();
+            const tagDescription = splitArgs.join(' ');
+            const tagDef = await PlacarDia.findOne({ where: {name: tagName} });
+            const affectedRows = await PlacarDia.update({ pont: tagDef.pont + parseInt(tagDescription) }, { where: { name: tagName } });
+            const tagPont = await PlacarDia.findOne({ where: {name: tagName} });
+            if (affectedRows > 0) {
+                return msg.reply(`${tagName} agora tem ${tagPont.pont}pts`);
+            }
+        }
+        
         else if(command === 'delete' && chefe!=undefined){
             const tagName = commandArgs;
             const rowCount = await Placar.destroy({where:{name:tagName}});
@@ -147,42 +227,29 @@ bot.on('message', async msg =>{
             }, 8500);
         }
         else if(command === '3apitosgeral' && chefe!=undefined){
-            bot.channels.cache.find(channel => channel.name === 'pt-canguru').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-phoenix').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-raposa').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-rinoceronte').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-tigre').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-aoraki').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-kailash').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-monte-fuji').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
-            bot.channels.cache.find(channel => channel.name === 'pt-grand-canyon').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");        
-            bot.channels.cache.find(channel => channel.name === 'hokklan').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");  
+            for(let i in channelsList){
+                bot.channels.cache.find(channel => channel.name == channelsList[i]).send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz Geral!");
+            }
         }
         else if(command === '3apitosesc' && chefe!=undefined){
-            bot.channels.cache.find(channel => channel.name === 'pt-canguru').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
-            bot.channels.cache.find(channel => channel.name === 'pt-phoenix').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
-            bot.channels.cache.find(channel => channel.name === 'pt-raposa').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
-            bot.channels.cache.find(channel => channel.name === 'pt-rinoceronte').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
-            bot.channels.cache.find(channel => channel.name === 'pt-tigre').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
+            for(let i=0;i<5;i++){
+                bot.channels.cache.find(channel => channel.name == channelsList[i]).send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Escoteira!");
+            }
         }
         else if(command === '3apitossen' && chefe!=undefined){
-            bot.channels.cache.find(channel => channel.name === 'pt-aoraki').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Senior!");
-            bot.channels.cache.find(channel => channel.name === 'pt-kailash').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Senior!");
-            bot.channels.cache.find(channel => channel.name === 'pt-monte-fuji').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Senior!");
-            bot.channels.cache.find(channel => channel.name === 'pt-grand-canyon').send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Senior!");        
+            for(let i = 5; i<9;i++){
+                bot.channels.cache.find(channel => channel.name === channelsList[i]).send("Piiii...\nPiiii...\nPiiiiiii...\n 3 apitos!!! Entrem no Canal de Voz da Tropa Senior!");        
+            }
         }
         else if(command === '2apitosesc' && chefe!=undefined){
-            bot.channels.cache.find(channel => channel.name === 'pt-canguru').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-phoenix').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-raposa').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-rinoceronte').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-tigre').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
+            for(let i = 0;i<5;i++){
+                bot.channels.cache.find(channel => channel.name === channelsList[i]).send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
+            }
         }
         else if(command === '2apitossen' && chefe!=undefined){
-            bot.channels.cache.find(channel => channel.name === 'pt-aoraki').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-kailash').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-monte-fuji').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");
-            bot.channels.cache.find(channel => channel.name === 'pt-grand-canyon').send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");        
+            for(let i = 5; i<9;i++){
+                bot.channels.cache.find(channel => channel.name === channelsList[i]).send("Piiii...\nPiiiiiii...\n2 apitos!!! Monitores, entrem no Canal de Voz dos Monitores!");        
+            }
         }
         else if(command === 'sortearpt'){
             msg.channel.send('1: Canguru \n 2:Phoenix \n 3:Raposa \n 4:Rinoceronte \n 5:Tigre \n 6:Aoraki \n 7:Grand Canyon \n 8:Kailash \n 9:Monte Fuji\n .');
